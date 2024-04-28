@@ -6,9 +6,6 @@ const ProductRoute = require("./routes/products.route");
 const app = express();
 app.use(express.json());
 
-// mongoDB username: arindam
-// mongoDB password: x6UJ0uSrwsCykf1J
-
 //route to /api/products
 app.use("/api/products", ProductRoute);
 
