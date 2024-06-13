@@ -19,7 +19,9 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.4.1",
     "morgan": "^1.10.0",
-    "otp-generator": "^4.0.1"
+    "otp-generator": "^4.0.1",
+    "otpless-node-js-auth-sdk": "^1.0.8",
+    "twilio": "^5.1.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.3"

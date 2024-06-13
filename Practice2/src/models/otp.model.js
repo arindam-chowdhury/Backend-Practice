@@ -7,10 +7,14 @@ const otpSchema = new Schema(
             required: true,
             trim: true
         },
-        otp: {
-            type: String,
-            required: true,
-            trim: true
+        // email: {
+        //     type: String,
+        //     required: true,
+        //     trim: true
+        // },
+        verify: {
+            type: Boolean,
+            default: false
         },
         createAt: {
             type: Date,

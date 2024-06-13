@@ -1,3 +1,4 @@
+const { TWILIO_PHONE_NUMBER, OTPLESS_CLIENT_ID, OTPLESS_CLIENT_SECRET } = require("../../config");
 const { PHONE_ALREADY_EXIST } = require("../../errors");
 const otpModel = require("../models/otp.model");
 const { generateOtp, sendMessage } = require("../utils/otp.util");
@@ -15,19 +16,36 @@ exports.sendOtpPhoneNumber = async (req, res, next) => {
         }
 
         //create new otp
-        const otp = generateOtp(4);
+        // const otp = generateOtp(4);
         const createOtp = new otpModel({
             phone,
-            otp
+            // otp
         });
 
-        //send otp message
+        // send otp message through infobip service
         // const message = {
         //     from: "hatchtag",
         //     to: "91"+phone,
         //     text: `Your OTP is ${otp}. This otp is valid upto next 5 minutes.`
         // };
-        await sendMessage(phone, otp, next);
+
+        // send otp message through twilio service
+        // const message = {
+        //     from: TWILIO_PHONE_NUMBER,
+        //     to: phone,
+        //     body: `Your OTP is ${otp}. This otp is valid upto next 5 minutes.`
+        // };
+
+        // send otp message through OTPless service
+        const content = {
+            phoneNumber: `91${phone}`,
+            // email: email,
+            channel: "SMS",
+            expiry: 300,
+            otpLength: 4
+        }
+        // await sendMessage(message, next);
+        const sendMessageRes = await sendMessage(content, next);
 
         //save otp
         await createOtp.save();
@@ -37,7 +55,8 @@ exports.sendOtpPhoneNumber = async (req, res, next) => {
             type:'success',
             message: 'OTP sent successfully',
             data: {
-                phone: createOtp.phone
+                phone: createOtp.phone,
+                optless_data: sendMessageRes
             }
         });
     }catch(err) {
