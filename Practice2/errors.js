@@ -12,4 +12,6 @@ exports.USER_NOT_FOUND_ERR = "User not found";
 
 exports.PHONE_ALREADY_EXIST = "Phone already exists";
 
+exports.PHONE_NOT_FOUND = "Phone not found";
+
 exports.ACCESS_DENIED_ERR = "Access deny for normal user";

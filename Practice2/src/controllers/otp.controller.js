@@ -1,12 +1,19 @@
-const { TWILIO_PHONE_NUMBER, OTPLESS_CLIENT_ID, OTPLESS_CLIENT_SECRET } = require("../../config");
-const { PHONE_ALREADY_EXIST } = require("../../errors");
+const { PHONE_ALREADY_EXIST, PHONE_NOT_FOUND } = require("../../errors");
 const otpModel = require("../models/otp.model");
-const { generateOtp, sendMessage } = require("../utils/otp.util");
+const { sendMessage, verify } = require("../utils/otp.util");
 
 // send opt to phone number
 exports.sendOtpPhoneNumber = async (req, res, next) => {
     try {
         let { phone } = req.body;
+
+        //check if it is a valid phone number
+        const regexPhoneNumber = /^[6-9]\d{9}$/;
+        const isValidPhone = regexPhoneNumber.test(phone);
+        if(!isValidPhone) {
+            next({ status: 400, message: PHONE_NOT_FOUND });
+            return;
+        }
 
         //check if phone already exist
         const phoneExist = await otpModel.findOne({ phone });
@@ -15,50 +22,30 @@ exports.sendOtpPhoneNumber = async (req, res, next) => {
             return;
         }
 
-        //create new otp
-        // const otp = generateOtp(4);
-        const createOtp = new otpModel({
-            phone,
-            // otp
-        });
-
-        // send otp message through infobip service
-        // const message = {
-        //     from: "hatchtag",
-        //     to: "91"+phone,
-        //     text: `Your OTP is ${otp}. This otp is valid upto next 5 minutes.`
-        // };
-
-        // send otp message through twilio service
-        // const message = {
-        //     from: TWILIO_PHONE_NUMBER,
-        //     to: phone,
-        //     body: `Your OTP is ${otp}. This otp is valid upto next 5 minutes.`
-        // };
-
         // send otp message through OTPless service
         const content = {
             phoneNumber: `91${phone}`,
-            // email: email,
             channel: "SMS",
             expiry: 300,
             otpLength: 4
         }
-        // await sendMessage(message, next);
         const sendMessageRes = await sendMessage(content, next);
-
-        //save otp
-        await createOtp.save();
-
+     
         //send response
         res.status(200).json({
             type:'success',
             message: 'OTP sent successfully',
             data: {
-                phone: createOtp.phone,
-                optless_data: sendMessageRes
+                phone: phone,
+                optless_data_orderId: sendMessageRes.orderId
             }
         });
+        // save phone number to
+        const createOtp = new otpModel({
+            phone,
+        });
+
+        await createOtp.save();
     }catch(err) {
         next(err);
     }
@@ -67,25 +54,67 @@ exports.sendOtpPhoneNumber = async (req, res, next) => {
 // verify otp
 exports.verifyOtp = async (req, res, next) => {
     try {
-        let { phone, otp } = req.body;
+        let { phone, otp, orderId } = req.body;
 
-        //check if otp exist
-        const otpExist = await otpModel.findOne({ phone, otp });
-        if(!otpExist) {
-            next({ status: 400, message: 'Invalid OTP' });
+        //check if phone already exist
+        const phoneExist = await otpModel.findOne({ phone });
+        if(!phoneExist) {
+            next({ status: 400, message: PHONE_NOT_FOUND });
             return;
         }
 
-        //send response
+        const content = {
+            phoneNumber: `91${phone}`,
+            orderId: orderId,
+            otp: otp
+        } 
+        
+        const sendMsgRes = await verify(content, next);
+
+                
         res.status(200).json({
             type:'success',
-            message: 'OTP verified successfully',
+            message: (sendMessage.message !== undefined)? "OTP verify successfully.":sendMessage.message,
             data: {
-                phone: otpExist.phone
+                phone: phoneExist.phone,
+                isOTPVerified: sendMsgRes.isOTPVerified
             }
         });
 
-    } catch (e) {
-        next(e);
+        // set otp varified to true
+        if(sendMsgRes.isOTPVerified) {
+            phoneExist.verify = true;
+            await phoneExist.save();
+        }
+
+    }catch(err) {
+        next(err);
     }
 };
+
+
+
+// exports.verifyOtp = async (req, res, next) => {
+//     try {
+//         let { phone, otp } = req.body;
+
+//         //check if otp exist
+//         const otpExist = await otpModel.findOne({ phone, otp });
+//         if(!otpExist) {
+//             next({ status: 400, message: 'Invalid OTP' });
+//             return;
+//         }
+
+//         //send response
+//         res.status(200).json({
+//             type:'success',
+//             message: 'OTP verified successfully',
+//             data: {
+//                 phone: otpExist.phone
+//             }
+//         });
+
+//     } catch (e) {
+//         next(e);
+//     }
+// };
