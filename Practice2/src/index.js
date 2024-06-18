@@ -59,8 +59,8 @@ app.use("*", (req, res, next) => {
 // global error handling middleware
 app.use((err, req, res, next) => {
   console.log(err);
-  const status = err.status || 500;
-  const message = err.message || SERVER_ERR;
+  const status = err.response ? (err.response.status || 500) : (err.status || 500);
+  const message = err.response ? (err.response.data.message || 500) : (err.message || SERVER_ERR);
   const data = err.data || null;
   res.status(status).json({
     type: "error",

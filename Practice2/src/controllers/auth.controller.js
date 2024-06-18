@@ -1,4 +1,4 @@
-const { PHONE_ALREADY_EXIST, USER_NOT_FOUND_ERR } = require("../../errors");
+const { USER_NOT_FOUND_ERR, PHONE_NOT_VERIFIED, USER_ALREADY_EXISTS_ERR, EMAIL_NOT_VERIFIED } = require("../../errors");
 const userModel = require("../models/user.model");
 const bcrypt = require("bcrypt");
 const { createJwtToken } = require("../utils/token.util");
@@ -10,22 +10,41 @@ exports.createNewUser = async (req, res, next) => {
 
         //check if phone already exist
         const phoneExist = await userModel.findOne({ phone });
-        if(phoneExist) {
-            next({ status: 400, message: PHONE_ALREADY_EXIST });
+        if(!phoneExist) {
+            next({ status: 400, message: PHONE_NOT_VERIFIED });
+            return;
+        }
+
+        if(!phoneExist.verifyPhone) {
+            next({ status: 400, message: PHONE_NOT_VERIFIED });
+            return;
+        }
+        
+        if(!phoneExist.verifyEmail) {
+            next({ status: 400, message: EMAIL_NOT_VERIFIED });
+            return;
+        }
+
+        if(phoneExist.name !== undefined) {
+            next({ status: 400, message: USER_ALREADY_EXISTS_ERR });
             return;
         }
 
         //create new user
-        const createUser = new userModel({
-            phone,
-            name,
-            password: await bcrypt.hash(password, 10),
-            email,
-            role: phone === process.env.ADMIN_PHONE ? 'admin' : 'user'
-        });
+        // const createUser = new userModel({
+        //     phone,
+        //     name,
+        //     password: await bcrypt.hash(password, 10),
+        //     email,
+        //     role: phone === process.env.ADMIN_PHONE ? 'admin' : 'user'
+        // });
+        phoneExist.password = await bcrypt.hash(password, 10);
+        phoneExist.name = name;
+        phoneExist.role = process.env.ADMIN_PHONE ? 'admin' : 'user';
 
         //save user
-        const newUser = await createUser.save();
+        // const newUser = await createUser.save();
+        const newUser = await phoneExist.save();
 
         //create jwt token
         const token = createJwtToken({ userId: newUser._id});

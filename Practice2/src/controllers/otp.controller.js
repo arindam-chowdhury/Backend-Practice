@@ -1,6 +1,7 @@
-const { PHONE_ALREADY_EXIST, PHONE_NOT_FOUND } = require("../../errors");
+const { PHONE_ALREADY_EXIST, PHONE_NOT_FOUND, EMAIL_NOT_FOUND, EMAIL_ALREADY_EXIST } = require("../../errors");
 const otpModel = require("../models/otp.model");
-const { sendMessage, verify } = require("../utils/otp.util");
+const userModel = require("../models/user.model");
+const { verifyOTPForMobile, sendMessageToMobile, sendMessageToEmail, verifyOTPForEmail } = require("../utils/otp.util");
 
 // send opt to phone number
 exports.sendOtpPhoneNumber = async (req, res, next) => {
@@ -16,7 +17,7 @@ exports.sendOtpPhoneNumber = async (req, res, next) => {
         }
 
         //check if phone already exist
-        const phoneExist = await otpModel.findOne({ phone });
+        const phoneExist = await userModel.findOne({ phone });
         if(phoneExist) {
             next({ status: 400, message: PHONE_ALREADY_EXIST });
             return;
@@ -29,7 +30,7 @@ exports.sendOtpPhoneNumber = async (req, res, next) => {
             expiry: 300,
             otpLength: 4
         }
-        const sendMessageRes = await sendMessage(content, next);
+        const sendMessageRes = await sendMessageToMobile(content, next);
      
         //send response
         res.status(200).json({
@@ -41,23 +42,23 @@ exports.sendOtpPhoneNumber = async (req, res, next) => {
             }
         });
         // save phone number to
-        const createOtp = new otpModel({
+        const createUser = new userModel({
             phone,
         });
 
-        await createOtp.save();
+        await createUser.save();
     }catch(err) {
         next(err);
     }
 };
 
-// verify otp
-exports.verifyOtp = async (req, res, next) => {
+// verify otp for phone number
+exports.verifyOtpForMobile = async (req, res, next) => {
     try {
         let { phone, otp, orderId } = req.body;
 
         //check if phone already exist
-        const phoneExist = await otpModel.findOne({ phone });
+        const phoneExist = await userModel.findOne({ phone });
         if(!phoneExist) {
             next({ status: 400, message: PHONE_NOT_FOUND });
             return;
@@ -69,12 +70,12 @@ exports.verifyOtp = async (req, res, next) => {
             otp: otp
         } 
         
-        const sendMsgRes = await verify(content, next);
+        const sendMsgRes = await verifyOTPForMobile(content, next);
 
                 
         res.status(200).json({
             type:'success',
-            message: (sendMessage.message !== undefined)? "OTP verify successfully.":sendMessage.message,
+            message: (sendMsgRes.message === undefined)? "OTP verify successfully.":sendMsgRes.message,
             data: {
                 phone: phoneExist.phone,
                 isOTPVerified: sendMsgRes.isOTPVerified
@@ -83,7 +84,7 @@ exports.verifyOtp = async (req, res, next) => {
 
         // set otp varified to true
         if(sendMsgRes.isOTPVerified) {
-            phoneExist.verify = true;
+            phoneExist.verifyPhone = true;
             await phoneExist.save();
         }
 
@@ -92,29 +93,109 @@ exports.verifyOtp = async (req, res, next) => {
     }
 };
 
+//send otp to email address
+exports.sendOtpEmail = async (req, res, next) => {
+    try {
+        let { email, phone } = req.body;
 
+        //check if it is a valid email
+        const regexEmail = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        const isValidEmail = regexEmail.test(email);
+        if(!isValidEmail) {
+            next({ status: 400, message: EMAIL_NOT_FOUND });
+            return;
+        }
 
-// exports.verifyOtp = async (req, res, next) => {
-//     try {
-//         let { phone, otp } = req.body;
+        //check if phone is already exists
+        const phoneExist = await userModel.findOne({ phone });
+        if(!phoneExist) {
+            next({ status: 400, message: PHONE_NOT_FOUND });
+            return;
+        }
 
-//         //check if otp exist
-//         const otpExist = await otpModel.findOne({ phone, otp });
-//         if(!otpExist) {
-//             next({ status: 400, message: 'Invalid OTP' });
-//             return;
-//         }
+        //check if phone number verified or not
+        if(!phoneExist.verifyPhone) {
+            next({ status: 400, message: "Phone number not verified"});
+            return;
+        }
 
-//         //send response
-//         res.status(200).json({
-//             type:'success',
-//             message: 'OTP verified successfully',
-//             data: {
-//                 phone: otpExist.phone
-//             }
-//         });
+        //check if the email is already exists
+        const emailExist = await userModel.findOne({ email });
+        if(emailExist) {
+            next({ status: 400, message: EMAIL_ALREADY_EXIST });
+            return;
+        }
 
-//     } catch (e) {
-//         next(e);
-//     }
-// };
+        // send otp message through OTPless service
+        const content = {
+            email: email,
+            channel: "EMAIL",
+            expiry: 300,
+            otpLength: 4
+        }
+        const sendMessageRes = await sendMessageToEmail(content, next);
+
+        //send response
+        res.status(200).json({
+            type:'success',
+            message: 'OTP sent successfully',
+            data: {
+                email: email,
+                optless_data_orderId: sendMessageRes.orderId
+            }
+        });
+        // save email address
+        phoneExist.email = email;
+        await phoneExist.save();
+
+    } catch (err) {
+        next(err);
+    }
+};
+
+//verify opt for email address
+exports.verifyOtpForEmail = async (req, res, next) => {
+    try {
+        let {email, phone, otp, orderId} = req.body;
+
+        //check if phone is already exists
+        const phoneExist = await userModel.findOne({ phone });
+        if(!phone) {
+            next({ status: 404, message: PHONE_NOT_FOUND});
+            return;
+        }
+
+        //check if the email is already exists
+        const emailExist = await userModel.findOne({ email });
+        if(!emailExist) {
+            next({ status: 400, message: EMAIL_NOT_FOUND });
+            return;
+        }
+
+        //check otp through OTPLess
+        const content = {
+            email: email,
+            orderId: orderId,
+            otp: otp
+        };
+        const sendMsgRes = await verifyOTPForEmail(content, next);
+
+        res.status(200).json({
+            type:'success',
+            message: (sendMsgRes.message === undefined)? "OTP verify successfully.":sendMsgRes.message,
+            data: {
+                phone: emailExist.phone,
+                email: emailExist.email,
+                isOTPVerified: sendMsgRes.isOTPVerified
+            }
+        });
+
+        //set otp varified to true
+        if(sendMsgRes.isOTPVerified) {
+            emailExist.verifyEmail = true;
+            await emailExist.save();
+        }
+    } catch (err) {
+        next(err);
+    }
+};

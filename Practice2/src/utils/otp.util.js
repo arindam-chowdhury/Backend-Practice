@@ -5,7 +5,7 @@ const axios = require('axios');
 //----------------------------------------------------------------
 // sending otp messages to clients mobile devices
 //----------------------------------------------------------------
-exports.sendMessage = async (message, next) => {
+exports.sendMessageToMobile = async (message, next) => {
     try {
         const response = await axios.post("https://auth.otpless.app/auth/otp/v1/send", {
             phoneNumber: message.phoneNumber,
@@ -30,9 +30,9 @@ exports.sendMessage = async (message, next) => {
 
 
 //----------------------------------------------------------------
-// verify otp message to client
+// verify otp message from phone number
 //----------------------------------------------------------------
-exports.verify = async (message, next) => {
+exports.verifyOTPForMobile = async (message, next) => {
     try {
         const response = await axios.post("https://auth.otpless.app/auth/otp/v1/verify", {
             phoneNumber: message.phoneNumber,
@@ -52,4 +52,52 @@ exports.verify = async (message, next) => {
         console.log(err);
         next(err);
     }
-}
+};
+
+//----------------------------------------------------------------
+// sending otp message to clients email address
+//----------------------------------------------------------------
+exports.sendMessageToEmail = async (message, next) => {
+    try {
+        const response = await axios.post("https://auth.otpless.app/auth/otp/v1/send", {
+            email: message.email,
+            channel: message.channel,
+            expiry: message.expiry,
+            otpLength: message.otpLength,
+        }, {
+            headers: {
+                'Content-Type': 'application/json',
+                'clientId': OTPLESS_CLIENT_ID,
+                'clientSecret': OTPLESS_CLIENT_SECRET
+            }
+        });
+
+        return response.data;
+    } catch (err) {
+        console.log(err);
+        next(err);
+    }
+};
+
+//----------------------------------------------------------------
+// verify otp message from client email address
+//----------------------------------------------------------------
+exports.verifyOTPForEmail = async (message, next) => {
+    try {
+        const response = await axios.post("https://auth.otpless.app/auth/otp/v1/verify", {
+            email: message.email,
+            otp: message.otp,
+            orderId: message.orderId
+        }, {
+            headers: {
+                'Content-Type': 'application/json',
+                'clientId': OTPLESS_CLIENT_ID,
+                'clientSecret': OTPLESS_CLIENT_SECRET
+            }
+        });
+        return response.data;
+    } catch (err) {
+        console.log(err);
+        next(err);
+    }
+};

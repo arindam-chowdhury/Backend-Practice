@@ -4,15 +4,17 @@ const otpSchema = new Schema(
     {
         phone: {
             type: String,
-            required: true,
             trim: true
         },
-        // email: {
-        //     type: String,
-        //     required: true,
-        //     trim: true
-        // },
-        verify: {
+        verifyPhone: {
+            type: Boolean,
+            default: false
+        },
+        email: {
+            type: String,
+            trim: true
+            },
+        verifyEmail: {
             type: Boolean,
             default: false
         },

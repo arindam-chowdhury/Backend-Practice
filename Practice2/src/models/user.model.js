@@ -4,24 +4,30 @@ const userSchema = new Schema(
     {
         phone: {
             type: String,
-            required: true,
             trim: true,
-            unique: true
+            unique: true,
+            required: true
+        },
+        verifyPhone: {
+            type: Boolean,
+            default: false
         },
         name: {
             type: String,
             trim: true,
-            required: true
         },
         password: {
             type: String,
             trim: true,
-            required: true
         },
         email: {
             type: String,
             trim: true,
-            required: true
+            unique: true
+        },
+        verifyEmail: {
+            type: Boolean,
+            default: false
         },
         role: {
             type: String,
